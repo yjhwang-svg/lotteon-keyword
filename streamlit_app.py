@@ -163,25 +163,23 @@ st.markdown("""
 
     /* Header */
     .app-header {
-        background: linear-gradient(135deg, #03c75a 0%, #00a550 100%);
-        color: white;
-        padding: 2.5rem 2rem 2rem;
-        border-radius: 0 0 20px 20px;
-        margin: -1rem -1rem 2rem -1rem;
+        padding: 1.5rem 0 1rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(3, 199, 90, 0.2);
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #03c75a;
     }
     .app-header h1 {
         font-size: 2rem;
         font-weight: 800;
         margin: 0 0 6px 0;
         letter-spacing: -0.5px;
+        color: #03c75a;
     }
     .app-header p {
         font-size: 0.85rem;
-        opacity: 0.85;
         margin: 0;
         font-weight: 400;
+        color: #868e96;
     }
 
     /* Brand section */
@@ -207,22 +205,21 @@ st.markdown("""
     .brand-label {
         font-weight: 700;
         font-size: 15px;
-        color: #1a1a1a;
+        color: #03c75a;
     }
 
     /* Usage tip */
     .usage-tip {
-        background: #f8fafb;
         border-left: 3px solid #03c75a;
         padding: 12px 16px;
         border-radius: 0 8px 8px 0;
         font-size: 13px;
-        color: #495057;
+        color: #868e96;
         line-height: 1.7;
         margin-bottom: 1.5rem;
     }
     .usage-tip strong {
-        color: #1a1a1a;
+        color: #03c75a;
     }
     .field-label {
         font-size: 12px;
@@ -381,6 +378,14 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<div class="usage-tip">
+    <strong>사용법</strong><br>
+    브랜드명을 입력하고, 상품명을 한 줄에 하나씩 입력하세요. 상품 개수 제한 없이 자유롭게 등록 가능합니다.<br>
+    이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.
+</div>
+""", unsafe_allow_html=True)
+
 
 # ── API Key ──
 
@@ -390,14 +395,6 @@ if not api_key:
     api_key = st.text_input("Gemini API Key", type="password")
     if not api_key:
         st.stop()
-
-st.markdown("""
-<div class="usage-tip">
-    <strong>사용법</strong><br>
-    브랜드명을 입력하고, 상품명을 한 줄에 하나씩 입력하세요. 상품 개수 제한 없이 자유롭게 등록 가능합니다.<br>
-    이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.
-</div>
-""", unsafe_allow_html=True)
 
 if 'brand_count' not in st.session_state:
     st.session_state.brand_count = 1
