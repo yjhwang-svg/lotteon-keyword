@@ -172,9 +172,9 @@ st.markdown("""
         box-shadow: 0 8px 32px rgba(3, 199, 90, 0.2);
     }
     .app-header h1 {
-        font-size: 1.6rem;
+        font-size: 2rem;
         font-weight: 800;
-        margin: 0 0 4px 0;
+        margin: 0 0 6px 0;
         letter-spacing: -0.5px;
     }
     .app-header p {
@@ -184,40 +184,44 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Brand card */
-    .brand-card {
-        background: #ffffff;
-        border: 1px solid #eaecef;
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-        transition: box-shadow 0.2s;
-    }
-    .brand-card:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-    }
-    .brand-badge {
+    /* Brand section */
+    .brand-section-title {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
+        gap: 10px;
+        margin: 4px 0 10px 0;
     }
     .brand-num {
         background: #03c75a;
         color: white;
-        width: 28px;
-        height: 28px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 12px;
+        flex-shrink: 0;
     }
     .brand-label {
         font-weight: 700;
         font-size: 15px;
+        color: #1a1a1a;
+    }
+
+    /* Usage tip */
+    .usage-tip {
+        background: #f8fafb;
+        border-left: 3px solid #03c75a;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        font-size: 13px;
+        color: #495057;
+        line-height: 1.7;
+        margin-bottom: 1.5rem;
+    }
+    .usage-tip strong {
         color: #1a1a1a;
     }
     .field-label {
@@ -387,20 +391,26 @@ if not api_key:
     if not api_key:
         st.stop()
 
+st.markdown("""
+<div class="usage-tip">
+    <strong>사용법</strong><br>
+    브랜드명을 입력하고, 상품명을 한 줄에 하나씩 입력하세요. 상품 개수 제한 없이 자유롭게 등록 가능합니다.<br>
+    이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.
+</div>
+""", unsafe_allow_html=True)
+
 if 'brand_count' not in st.session_state:
     st.session_state.brand_count = 1
 
 
-# ── Brand Input Cards ──
+# ── Brand Inputs ──
 
 brands_data = []
 for i in range(st.session_state.brand_count):
     st.markdown(f"""
-    <div class="brand-card">
-        <div class="brand-badge">
-            <span class="brand-num">{i+1}</span>
-            <span class="brand-label">브랜드 정보</span>
-        </div>
+    <div class="brand-section-title">
+        <span class="brand-num">{i+1}</span>
+        <span class="brand-label">브랜드</span>
     </div>
     """, unsafe_allow_html=True)
 
