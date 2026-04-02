@@ -33,9 +33,9 @@ SYSTEM_PROMPT = """네이버 검색광고 키워드 추출 전문가. 브랜드+
 2. 상품명에서 핵심 단어 추출 (대괄호, 색상, 용량, 수량, 할인율 제거. 영문→한글 변환/제거)
 3. 브랜드+단어1, 브랜드+단어1+단어2 등 다양한 조합 생성. 연관 단어 포함 (롱슬리브→긴팔 등)
 4. 브랜드 단독 키워드 포함 (예: 아이오페)
-5. **브랜드당 20~30개** 키워드만 추출 (핵심적이고 검색 가능성 높은 키워드 우선)
+5. **추가 키워드 10~20개** 추출 (핵심적이고 검색 가능성 높은 키워드 우선)
 6. 중복 제거, 가나다순 정렬
-7. 필수키워드가 제공되면: 결과에서 제외하되, 패턴/방향성을 참고하여 확장 추출
+7. 필수키워드가 제공되면: 필수키워드와 중복되지 않는 새로운 키워드만 10~20개 추가 추출하세요. 필수키워드의 패턴과 방향성을 참고하여 같은 맥락으로 확장하세요.
 
 ## 절대 금지 (매우 중요)
 - **브랜드명 중복 금지**: 키워드 안에 브랜드명이 두 번 이상 들어가면 안 됩니다.
@@ -67,7 +67,9 @@ def clean_keywords(keywords, brand_name=None, existing_keywords=None):
     for kw in keywords:
         kw = re.sub(r'[^가-힣a-zA-Z0-9]', '', kw)
         kw = kw.strip()
-        if not kw or len(kw) <= 1 or kw in existing:
+        if not kw or len(kw) <= 1:
+            continue
+        if kw in existing:
             continue
         if brand_lower:
             kw_lower = kw.lower()
@@ -76,7 +78,9 @@ def clean_keywords(keywords, brand_name=None, existing_keywords=None):
                 if remainder.startswith(brand_lower):
                     continue
         cleaned.append(kw)
-    return sorted(set(cleaned))
+    new_keywords = sorted(set(cleaned))
+    existing_sorted = sorted(existing)
+    return existing_sorted + new_keywords
 
 
 def is_retryable_error(error_str):
@@ -107,7 +111,7 @@ def extract_keywords_api(brands, api_key):
             user_prompt += f"- {p}\n"
 
         if existing_clean:
-            user_prompt += f"\n필수키워드 (이미 등록됨, 결과에서 제외하되 방향성 참고):\n"
+            user_prompt += f"\n필수키워드 (이미 등록됨, 이 키워드와 중복되지 않는 새 키워드만 10~20개 추가 추출):\n"
             for ek in existing_clean:
                 user_prompt += f"- {ek}\n"
         user_prompt += "\n"
@@ -134,7 +138,7 @@ def extract_keywords_api(brands, api_key):
                 for bn in result:
                     existing = all_existing.get(bn, set())
                     result[bn] = clean_keywords(result[bn], bn, existing)
-                return result, model_name
+                return result, model_name, all_existing
 
             except Exception as e:
                 last_error = str(e)
@@ -322,6 +326,33 @@ st.markdown("""
         border-color: #03c75a;
         color: #02a94d;
     }
+    .kw-chip-existing {
+        display: inline-block;
+        background: #e8f8ef;
+        border: 1px solid #03c75a;
+        color: #02a94d;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: default;
+    }
+    .kw-legend {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: #868e96;
+    }
+    .kw-legend-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
 
     /* Hide streamlit branding */
     #MainMenu {visibility: hidden;}
@@ -481,9 +512,10 @@ if st.button("🔍  키워드 추출", type="primary", use_container_width=True)
     else:
         with st.spinner("AI가 최적의 키워드를 분석하고 있습니다..."):
             try:
-                result, model_used = extract_keywords_api(valid_brands, api_key)
+                result, model_used, all_existing = extract_keywords_api(valid_brands, api_key)
                 st.session_state.last_result = result
                 st.session_state.model_used = model_used
+                st.session_state.all_existing = all_existing
             except Exception as e:
                 st.error(str(e))
                 st.stop()
@@ -507,21 +539,40 @@ if 'last_result' in st.session_state:
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
+    all_existing = st.session_state.get('all_existing', {})
+
+    st.markdown("""
+    <div class="kw-legend">
+        <span><span class="kw-legend-dot" style="background:#03c75a;"></span> 필수키워드 (기존)</span>
+        <span><span class="kw-legend-dot" style="background:#dee2e6;"></span> 신규 추출 키워드</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     all_keywords_text = ""
-    csv_data = "\ufeff브랜드,키워드\n"
+    csv_data = "\ufeff브랜드,구분,키워드\n"
 
     for brand_name in brand_names:
         keywords = result[brand_name]
+        existing_set = all_existing.get(brand_name, set())
         all_keywords_text += "\n".join(keywords) + "\n"
-        for kw in keywords:
-            csv_data += f"{brand_name},{kw}\n"
 
-        chips_html = "".join(f'<span class="kw-chip">{kw}</span>' for kw in keywords)
+        chips_html = ""
+        for kw in keywords:
+            if kw in existing_set:
+                chips_html += f'<span class="kw-chip-existing">{kw}</span>'
+                csv_data += f"{brand_name},필수,{kw}\n"
+            else:
+                chips_html += f'<span class="kw-chip">{kw}</span>'
+                csv_data += f"{brand_name},신규,{kw}\n"
+
+        existing_count = sum(1 for kw in keywords if kw in existing_set)
+        new_count = len(keywords) - existing_count
+
         st.markdown(f"""
         <div class="result-brand">
             <div class="result-brand-head">
                 <strong>{brand_name}</strong>
-                <span class="kw-count-pill">{len(keywords)}개</span>
+                <span class="kw-count-pill">{len(keywords)}개 (기존 {existing_count} + 신규 {new_count})</span>
             </div>
             <div class="kw-grid">{chips_html}</div>
         </div>
