@@ -147,57 +147,238 @@ def extract_keywords_api(brands, api_key):
     raise Exception(f"모든 AI 모델이 일시적으로 사용 불가합니다. 잠시 후 다시 시도해주세요.\n({last_error[:200] if last_error else ''})")
 
 
-# ── UI ──
+# ── Custom CSS ──
 
 st.markdown("""
 <style>
-    .block-container { max-width: 1100px; }
-    div[data-testid="stVerticalBlock"] > div { gap: 0.5rem; }
-    .brand-card {
-        background: white;
-        border: 1px solid #e0e4e8;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .kw-tag {
-        display: inline-block;
-        background: #f8f9fa;
-        border: 1px solid #e0e4e8;
-        padding: 6px 14px;
-        border-radius: 6px;
-        margin: 3px;
-        font-size: 14px;
+    .block-container {
+        max-width: 960px;
+        padding-top: 0 !important;
     }
-    .stat-box {
-        background: white;
-        border: 1px solid #e0e4e8;
-        border-radius: 10px;
-        padding: 16px;
+
+    /* Header */
+    .app-header {
+        background: linear-gradient(135deg, #03c75a 0%, #00a550 100%);
+        color: white;
+        padding: 2.5rem 2rem 2rem;
+        border-radius: 0 0 20px 20px;
+        margin: -1rem -1rem 2rem -1rem;
         text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        box-shadow: 0 8px 32px rgba(3, 199, 90, 0.2);
     }
-    .stat-box .val { font-size: 28px; font-weight: 800; color: #03c75a; }
-    .stat-box .lbl { font-size: 13px; color: #666; }
-    .result-header {
-        background: linear-gradient(135deg, #e8f8ef, #f0fdf5);
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin-bottom: 8px;
+    .app-header h1 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.5px;
+    }
+    .app-header p {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        margin: 0;
+        font-weight: 400;
+    }
+
+    /* Brand card */
+    .brand-card {
+        background: #ffffff;
+        border: 1px solid #eaecef;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        transition: box-shadow 0.2s;
+    }
+    .brand-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    .brand-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .brand-num {
+        background: #03c75a;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 13px;
+    }
+    .brand-label {
+        font-weight: 700;
+        font-size: 15px;
+        color: #1a1a1a;
+    }
+    .field-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #868e96;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .field-label-kw {
+        font-size: 12px;
+        font-weight: 600;
+        color: #e67e22;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .count-badge {
+        display: inline-block;
+        background: #f1f3f5;
+        color: #495057;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 4px;
+    }
+
+    /* Stat cards */
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid #eaecef;
+        border-radius: 14px;
+        padding: 1.25rem 1rem;
+        text-align: center;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .stat-val {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #03c75a;
+        line-height: 1.2;
+    }
+    .stat-lbl {
+        font-size: 0.75rem;
+        color: #868e96;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+
+    /* Result brand */
+    .result-brand {
+        background: #ffffff;
+        border: 1px solid #eaecef;
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .result-brand-head {
+        background: linear-gradient(135deg, #f0fdf5 0%, #e8f8ef 100%);
+        padding: 14px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        border-bottom: 1px solid #eaecef;
+    }
+    .result-brand-head strong {
+        font-size: 15px;
+        color: #1a1a1a;
+    }
+    .kw-count-pill {
+        background: #03c75a;
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .kw-grid {
+        padding: 16px 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .kw-chip {
+        display: inline-block;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        color: #343a40;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+        cursor: default;
+    }
+    .kw-chip:hover {
+        background: #e8f8ef;
+        border-color: #03c75a;
+        color: #02a94d;
+    }
+
+    /* Hide streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Fix textarea */
+    textarea {
+        font-family: 'Noto Sans KR', sans-serif !important;
+        font-size: 13px !important;
+    }
+
+    /* Streamlit buttons override */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #03c75a 0%, #00a550 100%) !important;
+        border: none !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        padding: 0.7rem 2rem !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 16px rgba(3, 199, 90, 0.3) !important;
+        transition: all 0.2s !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        box-shadow: 0 6px 24px rgba(3, 199, 90, 0.4) !important;
+        transform: translateY(-1px);
+    }
+    .stButton > button[kind="secondary"] {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 13px !important;
+    }
+    .stDownloadButton > button {
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Divider */
+    hr {
+        border: none;
+        border-top: 1px solid #f1f3f5;
+        margin: 0.5rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
+
+# ── Header ──
+
 st.markdown("""
-<div style="background: linear-gradient(135deg, #03c75a, #00b843); color:white; padding:28px 0 24px; text-align:center; border-radius:0 0 16px 16px; margin: -1rem -1rem 1.5rem -1rem; box-shadow: 0 4px 20px rgba(3,199,90,0.25);">
-    <h1 style="font-size:26px; margin:0 0 6px 0;">네이버 검색광고 키워드 추출기</h1>
-    <p style="font-size:14px; opacity:0.9; margin:0;">브랜드와 상품명을 입력하면 AI가 검색광고용 키워드를 자동 추출합니다</p>
+<div class="app-header">
+    <h1>네이버 검색광고 키워드 추출기</h1>
+    <p>브랜드와 상품명을 입력하면 AI가 검색광고용 키워드를 자동 추출합니다</p>
 </div>
 """, unsafe_allow_html=True)
+
+
+# ── API Key ──
 
 api_key = get_api_key()
 if not api_key:
@@ -206,69 +387,86 @@ if not api_key:
     if not api_key:
         st.stop()
 
-st.info("**사용법:** 브랜드명을 입력하고, 상품명을 한 줄에 하나씩 입력하세요. 상품 개수 제한 없이 자유롭게 등록 가능합니다. 이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.")
-
 if 'brand_count' not in st.session_state:
     st.session_state.brand_count = 1
 
-col_add, col_remove = st.columns([1, 1])
-with col_add:
-    if st.button("➕ 브랜드 추가", use_container_width=True):
-        st.session_state.brand_count += 1
-        st.rerun()
-with col_remove:
-    if st.session_state.brand_count > 1:
-        if st.button("➖ 마지막 브랜드 삭제", use_container_width=True):
-            st.session_state.brand_count -= 1
-            st.rerun()
+
+# ── Brand Input Cards ──
 
 brands_data = []
 for i in range(st.session_state.brand_count):
-    with st.container():
-        st.markdown(f"### 브랜드 {i+1}")
-        brand_name = st.text_input(
-            "브랜드명",
-            key=f"brand_{i}",
-            placeholder="예: 마리끌레르",
+    st.markdown(f"""
+    <div class="brand-card">
+        <div class="brand-badge">
+            <span class="brand-num">{i+1}</span>
+            <span class="brand-label">브랜드 정보</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    brand_name = st.text_input(
+        f"브랜드명 {i+1}",
+        key=f"brand_{i}",
+        placeholder="브랜드명을 입력하세요 (예: 마리끌레르)",
+        label_visibility="collapsed",
+    )
+
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.markdown('<div class="field-label">상품 목록</div>', unsafe_allow_html=True)
+        products_text = st.text_area(
+            f"상품목록 {i+1}",
+            key=f"products_{i}",
+            height=160,
+            placeholder="한 줄에 하나씩 입력\n\n울 버튼 핸드메이드 자켓\n아치 로고 래글런 롱슬리브\n베이직 로고 오버핏 미니 체크 셔츠",
+            label_visibility="collapsed",
+        )
+    with col_right:
+        st.markdown('<div class="field-label-kw">필수키워드 (선택)</div>', unsafe_allow_html=True)
+        existing_text = st.text_area(
+            f"필수키워드 {i+1}",
+            key=f"existing_{i}",
+            height=160,
+            placeholder="이미 등록된 키워드 붙여넣기\n세미콜론·쉼표·줄바꿈 모두 지원\n\n불가리;불가리퍼퓸;불가리퍼퓸오드퍼퓸",
             label_visibility="collapsed",
         )
 
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**상품 목록**")
-            products_text = st.text_area(
-                "상품 목록",
-                key=f"products_{i}",
-                height=150,
-                placeholder="상품명을 한 줄에 하나씩 입력\n\n예시:\n울 버튼 핸드메이드 자켓\n아치 로고 래글런 롱슬리브",
-                label_visibility="collapsed",
-            )
-        with right:
-            st.markdown("**필수키워드** *(선택)*")
-            existing_text = st.text_area(
-                "필수키워드",
-                key=f"existing_{i}",
-                height=150,
-                placeholder="이미 등록된 키워드를 붙여넣기\n(세미콜론, 쉼표, 줄바꿈 모두 지원)\n\n예시:\n불가리;불가리퍼퓸;불가리퍼퓸오드퍼퓸",
-                label_visibility="collapsed",
-            )
+    products = [p.strip() for p in products_text.split('\n') if p.strip()]
+    existing = parse_keyword_text(existing_text) if existing_text else []
 
-        products = [p.strip() for p in products_text.split('\n') if p.strip()]
-        existing = parse_keyword_text(existing_text) if existing_text else []
+    prod_count = len(products)
+    ek_count = len(existing)
+    st.markdown(
+        f'<span class="count-badge">상품 {prod_count}개</span>'
+        f'<span class="count-badge">필수키워드 {ek_count}개</span>',
+        unsafe_allow_html=True,
+    )
 
-        prod_count = len(products)
-        ek_count = len(existing)
-        st.caption(f"상품 {prod_count}개 | 필수키워드 {ek_count}개")
+    brands_data.append({
+        'brand': brand_name.strip() if brand_name else '',
+        'products': products,
+        'existing': existing,
+    })
 
-        brands_data.append({
-            'brand': brand_name.strip() if brand_name else '',
-            'products': products,
-            'existing': existing,
-        })
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    st.divider()
 
-if st.button("🔍 키워드 추출", type="primary", use_container_width=True):
+# ── Action Buttons (브랜드 추가/삭제 → 키워드 추출 순서) ──
+
+col_add, col_del, col_spacer = st.columns([1, 1, 2])
+with col_add:
+    if st.button("＋ 브랜드 추가", use_container_width=True):
+        st.session_state.brand_count += 1
+        st.rerun()
+with col_del:
+    if st.session_state.brand_count > 1:
+        if st.button("－ 브랜드 삭제", use_container_width=True):
+            st.session_state.brand_count -= 1
+            st.rerun()
+
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+if st.button("🔍  키워드 추출", type="primary", use_container_width=True):
     valid_brands = [b for b in brands_data if b['brand'] and b['products']]
 
     if not valid_brands:
@@ -283,22 +481,24 @@ if st.button("🔍 키워드 추출", type="primary", use_container_width=True):
                 st.error(str(e))
                 st.stop()
 
+
+# ── Results ──
+
 if 'last_result' in st.session_state:
     result = st.session_state.last_result
 
-    st.markdown("---")
-    st.markdown("## 추출 결과")
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
     brand_names = list(result.keys())
     total_kw = sum(len(result[b]) for b in brand_names)
 
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(f'<div class="stat-box"><div class="val">{len(brand_names)}</div><div class="lbl">브랜드 수</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-card"><div class="stat-val">{len(brand_names)}</div><div class="stat-lbl">브랜드 수</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'<div class="stat-box"><div class="val">{total_kw}</div><div class="lbl">총 키워드 수</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="stat-card"><div class="stat-val">{total_kw}</div><div class="stat-lbl">총 키워드 수</div></div>', unsafe_allow_html=True)
 
-    st.markdown("")
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
     all_keywords_text = ""
     csv_data = "\ufeff브랜드,키워드\n"
@@ -306,21 +506,26 @@ if 'last_result' in st.session_state:
     for brand_name in brand_names:
         keywords = result[brand_name]
         all_keywords_text += "\n".join(keywords) + "\n"
-
         for kw in keywords:
             csv_data += f"{brand_name},{kw}\n"
 
-        st.markdown(f'<div class="result-header"><strong>{brand_name}</strong><span style="background:#03c75a;color:white;padding:3px 12px;border-radius:12px;font-size:13px;">{len(keywords)}개</span></div>', unsafe_allow_html=True)
+        chips_html = "".join(f'<span class="kw-chip">{kw}</span>' for kw in keywords)
+        st.markdown(f"""
+        <div class="result-brand">
+            <div class="result-brand-head">
+                <strong>{brand_name}</strong>
+                <span class="kw-count-pill">{len(keywords)}개</span>
+            </div>
+            <div class="kw-grid">{chips_html}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        tags_html = "".join(f'<span class="kw-tag">{kw}</span>' for kw in keywords)
-        st.markdown(f'<div style="padding:8px 0 16px;">{tags_html}</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     dl1, dl2, dl3 = st.columns(3)
     with dl1:
         st.download_button(
-            "📋 전체 키워드 복사용 (TXT)",
+            "📋  TXT 다운로드",
             data=all_keywords_text,
             file_name="naver_keywords.txt",
             mime="text/plain",
@@ -328,7 +533,7 @@ if 'last_result' in st.session_state:
         )
     with dl2:
         st.download_button(
-            "📊 CSV 다운로드",
+            "📊  CSV 다운로드",
             data=csv_data,
             file_name="naver_keywords.csv",
             mime="text/csv",
@@ -336,18 +541,15 @@ if 'last_result' in st.session_state:
         )
     with dl3:
         try:
-            import openpyxl
             from openpyxl import Workbook
             wb = Workbook()
             wb.remove(wb.active)
-
             for bn in brand_names:
                 ws = wb.create_sheet(title=bn[:31])
                 ws.append(["키워드"])
                 ws.column_dimensions['A'].width = 40
                 for kw in result[bn]:
                     ws.append([kw])
-
             ws_all = wb.create_sheet(title="전체")
             ws_all.append(["브랜드", "키워드"])
             ws_all.column_dimensions['A'].width = 20
@@ -355,11 +557,10 @@ if 'last_result' in st.session_state:
             for bn in brand_names:
                 for kw in result[bn]:
                     ws_all.append([bn, kw])
-
             buf = io.BytesIO()
             wb.save(buf)
             st.download_button(
-                "📥 Excel 다운로드",
+                "📥  Excel 다운로드",
                 data=buf.getvalue(),
                 file_name="naver_keywords.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
