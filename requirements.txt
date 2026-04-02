@@ -1,4 +1,3 @@
-flask
+streamlit
 google-genai
-python-dotenv
 openpyxl
