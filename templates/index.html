@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>네이버 검색광고 키워드 추출기</title>
+    <style>
+        :root {
+            --primary: #03c75a;
+            --primary-dark: #02a94d;
+            --primary-light: #e8f8ef;
+            --bg: #f5f7fa;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #666;
+            --border: #e0e4e8;
+            --danger: #e74c3c;
+            --danger-light: #fdeaea;
+            --shadow: 0 2px 12px rgba(0,0,0,0.08);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #00b843 100%);
+            color: white;
+            padding: 28px 0 24px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(3, 199, 90, 0.25);
+        }
+
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        .brand-section {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+            transition: box-shadow 0.2s;
+        }
+
+        .brand-section:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .brand-number {
+            background: var(--primary);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .brand-header input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .brand-header input:focus {
+            border-color: var(--primary);
+        }
+
+        .remove-brand-btn {
+            background: none;
+            border: none;
+            color: #ccc;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        .remove-brand-btn:hover {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .products-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .product-count {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .products-area {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.7;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .products-area:focus {
+            border-color: var(--primary);
+        }
+
+        .products-area::placeholder {
+            color: #bbb;
+        }
+
+        .field-row {
+            display: flex;
+            gap: 16px;
+            margin-top: 14px;
+        }
+
+        .field-col {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .existing-kw-area {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px 14px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.7;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            background: #fefcf3;
+        }
+
+        .existing-kw-area:focus {
+            border-color: #f0ad4e;
+        }
+
+        .existing-kw-area::placeholder {
+            color: #bbb;
+        }
+
+        .existing-kw-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #b8860b;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .existing-kw-count {
+            background: #fff3cd;
+            color: #856404;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 800px) {
+            .field-row {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 12px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(3, 199, 90, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(3, 199, 90, 0.35);
+        }
+
+        .btn-primary:disabled {
+            background: #aaa;
+            box-shadow: none;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-export {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .btn-export:hover {
+            background: #1a252f;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-box {
+            background: white;
+            padding: 40px 50px;
+            border-radius: var(--radius);
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-box p {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .loading-box .sub {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            font-weight: 400;
+        }
+
+        .results-section {
+            display: none;
+            margin-top: 32px;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .results-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .result-brand-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .result-brand-title {
+            background: linear-gradient(135deg, var(--primary-light) 0%, #f0fdf5 100%);
+            padding: 16px 20px;
+            font-weight: 700;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-brand-title .kw-count {
+            background: var(--primary);
+            color: white;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .keywords-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 8px;
+            padding: 16px 20px;
+        }
+
+        .keyword-tag {
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            transition: all 0.15s;
+            cursor: pointer;
+            user-select: all;
+        }
+
+        .keyword-tag:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        .total-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 16px 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .error-toast {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--danger);
+            color: white;
+            padding: 14px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 14px rgba(231, 76, 60, 0.3);
+            z-index: 2000;
+            max-width: 400px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .info-box {
+            background: #fffbe6;
+            border: 1px solid #ffe58f;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #8a6d3b;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+            .container { padding: 16px 12px 40px; }
+            .brand-section { padding: 16px; }
+            .keywords-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+            .actions-bar { flex-direction: column; }
+            .btn { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>네이버 검색광고 키워드 추출기</h1>
+        <p>브랜드와 상품명을 입력하면 AI가 검색광고용 키워드를 자동 추출합니다</p>
+    </div>
+
+    <div class="container">
+        <div class="info-box">
+            <strong>사용법:</strong> 브랜드명을 입력하고, 상품명을 한 줄에 하나씩 입력하세요. 상품 개수 제한 없이 자유롭게 등록 가능합니다. 이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.
+        </div>
+
+        <div id="brandsContainer"></div>
+
+        <div class="actions-bar">
+            <button class="btn btn-secondary" onclick="addBrand()">+ 브랜드 추가</button>
+            <button class="btn btn-primary" id="extractBtn" onclick="extractKeywords()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                키워드 추출
+            </button>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="results-header">
+                <h2>추출 결과</h2>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-secondary" onclick="copyAllKeywords()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        전체 복사
+                    </button>
+                    <button class="btn btn-export" onclick="exportCSV()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        CSV 다운로드
+                    </button>
+                    <button class="btn btn-export" onclick="exportExcel()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Excel 다운로드
+                    </button>
+                </div>
+            </div>
+            <div class="total-stats" id="totalStats"></div>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="spinner"></div>
+            <p>키워드 추출 중...</p>
+            <p class="sub">AI가 최적의 키워드를 분석하고 있습니다</p>
+        </div>
+    </div>
+
+    <div class="error-toast" id="errorToast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        let brandCounter = 0;
+        let lastResult = null;
+
+        function parseKeywordText(text) {
+            return text
+                .split(/[;\n,]+/)
+                .map(k => k.trim())
+                .filter(k => k.length > 0);
+        }
+
+        function addBrand(brandName = '', products = '', existingKw = '') {
+            brandCounter++;
+            const container = document.getElementById('brandsContainer');
+            const section = document.createElement('div');
+            section.className = 'brand-section';
+            section.id = `brand-${brandCounter}`;
+            const num = container.children.length + 1;
+
+            section.innerHTML = `
+                <div class="brand-header">
+                    <span class="brand-number">${num}</span>
+                    <input type="text" placeholder="브랜드명 입력 (예: 마리끌레르)" value="${brandName}" class="brand-input">
+                    <button class="remove-brand-btn" onclick="removeBrand(this)" title="브랜드 삭제">&times;</button>
+                </div>
+                <div class="field-row">
+                    <div class="field-col">
+                        <div class="products-label">
+                            상품 목록
+                            <span class="product-count">0개</span>
+                        </div>
+                        <textarea class="products-area" placeholder="상품명을 한 줄에 하나씩 입력하세요&#10;&#10;예시:&#10;울 버튼 핸드메이드 자켓&#10;아치 로고 래글런 롱슬리브&#10;베이직 로고 오버핏 미니 체크 셔츠">${products}</textarea>
+                    </div>
+                    <div class="field-col">
+                        <div class="existing-kw-label">
+                            필수키워드 (선택)
+                            <span class="existing-kw-count">0개</span>
+                        </div>
+                        <textarea class="existing-kw-area" placeholder="이미 등록된 키워드를 붙여넣기 하세요&#10;(세미콜론, 쉼표, 줄바꿈 모두 지원)&#10;&#10;예시:&#10;불가리;불가리퍼퓸;불가리퍼퓸오드퍼퓸&#10;또는 한 줄에 하나씩 입력">${existingKw}</textarea>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(section);
+
+            const textarea = section.querySelector('.products-area');
+            const countSpan = section.querySelector('.product-count');
+            textarea.addEventListener('input', () => {
+                const lines = textarea.value.split('\n').filter(l => l.trim());
+                countSpan.textContent = `${lines.length}개`;
+            });
+            textarea.dispatchEvent(new Event('input'));
+
+            const ekArea = section.querySelector('.existing-kw-area');
+            const ekCount = section.querySelector('.existing-kw-count');
+            ekArea.addEventListener('input', () => {
+                const keywords = parseKeywordText(ekArea.value);
+                ekCount.textContent = `${keywords.length}개`;
+            });
+            ekArea.dispatchEvent(new Event('input'));
+        }
+
+        function removeBrand(btn) {
+            const section = btn.closest('.brand-section');
+            section.remove();
+            renumberBrands();
+        }
+
+        function renumberBrands() {
+            const sections = document.querySelectorAll('.brand-section');
+            sections.forEach((s, i) => {
+                s.querySelector('.brand-number').textContent = i + 1;
+            });
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 5000);
+        }
+
+        function collectBrandData() {
+            const sections = document.querySelectorAll('.brand-section');
+            const brands = [];
+            let hasError = false;
+
+            sections.forEach(section => {
+                const brand = section.querySelector('.brand-input').value.trim();
+                const productsText = section.querySelector('.products-area').value;
+                const products = productsText.split('\n').map(p => p.trim()).filter(p => p);
+                const ekText = section.querySelector('.existing-kw-area').value;
+                const existingKeywords = parseKeywordText(ekText);
+
+                if (!brand) {
+                    showError('브랜드명을 입력해주세요.');
+                    hasError = true;
+                    return;
+                }
+                if (products.length === 0) {
+                    showError(`"${brand}" 브랜드의 상품을 최소 1개 이상 입력해주세요.`);
+                    hasError = true;
+                    return;
+                }
+
+                brands.push({ brand, products, existingKeywords });
+            });
+
+            return hasError ? null : brands;
+        }
+
+        async function extractKeywords() {
+            const brands = collectBrandData();
+            if (!brands || brands.length === 0) return;
+
+            const btn = document.getElementById('extractBtn');
+            const overlay = document.getElementById('loadingOverlay');
+
+            btn.disabled = true;
+            overlay.classList.add('active');
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brands })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '키워드 추출에 실패했습니다.');
+                }
+
+                lastResult = data.result;
+                renderResults(data.result);
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                btn.disabled = false;
+                overlay.classList.remove('active');
+            }
+        }
+
+        function renderResults(result) {
+            const section = document.getElementById('resultsSection');
+            const content = document.getElementById('resultsContent');
+            const stats = document.getElementById('totalStats');
+
+            section.classList.add('active');
+
+            const brandNames = Object.keys(result);
+            let totalKeywords = 0;
+            brandNames.forEach(b => totalKeywords += result[b].length);
+
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${brandNames.length}</div>
+                    <div class="stat-label">브랜드 수</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalKeywords}</div>
+                    <div class="stat-label">총 키워드 수</div>
+                </div>
+            `;
+
+            let html = '';
+            brandNames.forEach(brandName => {
+                const keywords = result[brandName];
+                html += `
+                    <div class="result-brand-card">
+                        <div class="result-brand-title">
+                            ${brandName}
+                            <span class="kw-count">${keywords.length}개</span>
+                        </div>
+                        <div class="keywords-grid">
+                            ${keywords.map(kw => `<div class="keyword-tag" title="클릭하여 복사" onclick="copySingle(this, '${kw}')">${kw}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            content.innerHTML = html;
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function copySingle(el, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = el.textContent;
+                el.textContent = '복사됨!';
+                el.style.background = '#d4edda';
+                setTimeout(() => {
+                    el.textContent = orig;
+                    el.style.background = '';
+                }, 800);
+            });
+        }
+
+        function copyAllKeywords() {
+            if (!lastResult) return;
+            const allKeywords = [];
+            Object.keys(lastResult).forEach(brand => {
+                allKeywords.push(...lastResult[brand]);
+            });
+            navigator.clipboard.writeText(allKeywords.join('\n')).then(() => {
+                showToast('전체 키워드가 클립보드에 복사되었습니다.');
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('errorToast');
+            toast.style.background = '#03c75a';
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+                toast.style.background = '';
+            }, 2500);
+        }
+
+        function exportCSV() {
+            if (!lastResult) return;
+            let csv = '\uFEFF브랜드,키워드\n';
+            Object.keys(lastResult).forEach(brand => {
+                lastResult[brand].forEach(kw => {
+                    csv += `${brand},${kw}\n`;
+                });
+            });
+            downloadFile(csv, 'naver_keywords.csv', 'text/csv;charset=utf-8');
+        }
+
+        function exportExcel() {
+            if (!lastResult) return;
+            const wb = XLSX.utils.book_new();
+
+            Object.keys(lastResult).forEach(brand => {
+                const data = lastResult[brand].map(kw => ({ '키워드': kw }));
+                const ws = XLSX.utils.json_to_sheet(data);
+                ws['!cols'] = [{ wch: 40 }];
+                const sheetName = brand.substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+
+            const allData = [];
+            Object.keys(lastResult).forEach(brand => {
+                lastResult[brand].forEach(kw => {
+                    allData.push({ '브랜드': brand, '키워드': kw });
+                });
+            });
+            const allWs = XLSX.utils.json_to_sheet(allData);
+            allWs['!cols'] = [{ wch: 20 }, { wch: 40 }];
+            XLSX.utils.book_append_sheet(wb, allWs, '전체');
+
+            XLSX.writeFile(wb, 'naver_keywords.xlsx');
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        addBrand();
+    </script>
+</body>
+</html>
