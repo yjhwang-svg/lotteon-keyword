@@ -2,6 +2,7 @@ import os
 import json
 import re
 import time
+import hashlib
 import streamlit as st
 import google.genai as genai
 import io
@@ -92,7 +93,18 @@ def parse_keyword_text(text):
     return [k.strip() for k in re.split(r'[;,\n]+', text) if k.strip()]
 
 
-def extract_keywords_api(brands, api_key):
+def _build_cache_key(brands):
+    """브랜드+상품+필수키워드 조합으로 캐시 키 생성"""
+    key_data = []
+    for b in brands:
+        key_data.append(b['brand'])
+        key_data.extend(sorted(b['products']))
+        key_data.extend(sorted(b.get('existing', [])))
+    return hashlib.sha256("|".join(key_data).encode()).hexdigest()
+
+
+def _call_gemini(brands, api_key):
+    """실제 Gemini API 호출 (캐시 미스 시에만 실행)"""
     client = genai.Client(api_key=api_key)
     all_existing = {}
 
@@ -117,8 +129,9 @@ def extract_keywords_api(brands, api_key):
         user_prompt += "\n"
 
     last_error = None
+    max_retries = 3
     for model_name in FALLBACK_MODELS:
-        for attempt in range(2):
+        for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -142,13 +155,36 @@ def extract_keywords_api(brands, api_key):
 
             except Exception as e:
                 last_error = str(e)
-                if is_retryable_error(last_error) and attempt < 1:
-                    time.sleep(5)
+                if is_retryable_error(last_error) and attempt < max_retries - 1:
+                    wait = min(5 * (2 ** attempt), 60)
+                    time.sleep(wait)
                     continue
                 else:
                     break
 
     raise Exception(f"모든 AI 모델이 일시적으로 사용 불가합니다. 잠시 후 다시 시도해주세요.\n({last_error[:200] if last_error else ''})")
+
+
+def extract_keywords_api(brands, api_key):
+    cache_key = _build_cache_key(brands)
+
+    if 'kw_cache' not in st.session_state:
+        st.session_state.kw_cache = {}
+
+    if cache_key in st.session_state.kw_cache:
+        cached = st.session_state.kw_cache[cache_key]
+        if time.time() - cached['ts'] < 3600:
+            return cached['result'], cached['model'] + " (cached)", cached['all_existing']
+
+    result, model_name, all_existing = _call_gemini(brands, api_key)
+
+    st.session_state.kw_cache[cache_key] = {
+        'result': result,
+        'model': model_name,
+        'all_existing': all_existing,
+        'ts': time.time(),
+    }
+    return result, model_name, all_existing
 
 
 # ── Custom CSS ──
