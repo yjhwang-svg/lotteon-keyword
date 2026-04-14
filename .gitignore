@@ -2,3 +2,11 @@
 __pycache__/
 *.pyc
 .env
+
+# Runtime quota state (per-user, not source)
+quota.json
+quota.json.lock
+
+# Test/tool caches
+.pytest_cache/
+.omc/
