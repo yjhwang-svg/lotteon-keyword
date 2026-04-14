@@ -7,13 +7,15 @@ import streamlit as st
 import google.genai as genai
 import io
 
+import quota_tracker
+
 st.set_page_config(
     page_title="네이버 검색광고 키워드 추출기",
     page_icon="🔍",
     layout="wide",
 )
 
-FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
 
 FEW_SHOT_EXAMPLES = """
 [예시 1]
@@ -56,8 +58,11 @@ SYSTEM_PROMPT = """네이버 검색광고 키워드 추출 전문가. 브랜드+
 
 
 def get_api_key():
-    if "GEMINI_API_KEY" in st.secrets:
-        return st.secrets["GEMINI_API_KEY"]
+    try:
+        if "GEMINI_API_KEY" in st.secrets:
+            return st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        pass
     return os.getenv("GEMINI_API_KEY", "")
 
 
@@ -130,7 +135,19 @@ def _call_gemini(brands, api_key):
 
     last_error = None
     max_retries = 3
-    for model_name in FALLBACK_MODELS:
+
+    selected = st.session_state.get('selected_model', None)
+    if selected and selected in FALLBACK_MODELS:
+        chain = [selected] + [m for m in FALLBACK_MODELS if m != selected]
+    else:
+        chain = FALLBACK_MODELS
+
+    for model_name in chain:
+        allowed, reason = quota_tracker.can_call(model_name)
+        if not allowed:
+            last_error = f"[{model_name}] 무료 티어 차단: {reason}"
+            continue
+
         for attempt in range(max_retries):
             try:
                 response = client.models.generate_content(
@@ -141,6 +158,7 @@ def _call_gemini(brands, api_key):
                         'temperature': 0.3,
                     }
                 )
+                quota_tracker.record_call(model_name)
                 response_text = response.text.strip()
                 json_match = re.search(r'\{[\s\S]*\}', response_text)
                 if not json_match:
@@ -162,7 +180,10 @@ def _call_gemini(brands, api_key):
                 else:
                     break
 
-    raise Exception(f"모든 AI 모델이 일시적으로 사용 불가합니다. 잠시 후 다시 시도해주세요.\n({last_error[:200] if last_error else ''})")
+    raise Exception(
+        "모든 AI 모델이 사용 불가합니다. 무료 티어가 소진되었거나 일시적 오류일 수 있습니다.\n"
+        f"({last_error[:200] if last_error else ''})"
+    )
 
 
 def extract_keywords_api(brands, api_key):
@@ -432,6 +453,267 @@ st.markdown("""
         border-top: 1px solid #f1f3f5;
         margin: 0.5rem 0;
     }
+
+    /* ===== Free tier info banner ===== */
+    .free-tier-banner {
+        background: linear-gradient(135deg, #e8f8ef 0%, #d4f4df 100%);
+        border: 1px solid #a8e6b8;
+        border-radius: 14px;
+        padding: 18px 22px;
+        margin: 1.25rem 0 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        box-shadow: 0 2px 8px rgba(3, 199, 90, 0.06);
+    }
+    .free-tier-icon {
+        font-size: 34px;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    .free-tier-body { flex: 1; }
+    .free-tier-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #02a94d;
+        margin-bottom: 4px;
+        letter-spacing: -0.2px;
+    }
+    .free-tier-text {
+        font-size: 12.5px;
+        line-height: 1.65;
+        color: #2c3e50;
+    }
+    .free-tier-text strong { color: #02a94d; font-weight: 700; }
+    .free-tier-chip {
+        display: inline-block;
+        background: #03c75a;
+        color: white;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-left: 4px;
+    }
+
+    /* ===== Section title ===== */
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #495057;
+        margin: 18px 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .section-title-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #03c75a;
+    }
+
+    /* ===== Model selector radio pills ===== */
+    div[data-testid="stRadio"] > label {
+        display: none !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] {
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label {
+        background: #ffffff !important;
+        border: 1.5px solid #e9ecef !important;
+        border-radius: 10px !important;
+        padding: 10px 18px !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+        margin: 0 !important;
+        min-width: unset !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:hover {
+        border-color: #03c75a !important;
+        background: #f0fdf5 !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label > div:first-child {
+        display: none !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label p {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        margin: 0 !important;
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
+        background: linear-gradient(135deg, #03c75a 0%, #02a94d 100%) !important;
+        border-color: #02a94d !important;
+        box-shadow: 0 4px 14px rgba(3, 199, 90, 0.32) !important;
+        transform: translateY(-1px);
+    }
+    div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) p {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* ===== Quota cards ===== */
+    .quota-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 8px 0 18px;
+    }
+    .quota-card {
+        background: #ffffff;
+        border: 1.5px solid #eaecef;
+        border-radius: 14px;
+        padding: 18px 18px 16px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.2s ease;
+    }
+    .quota-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+    .quota-card.priority {
+        border: 2px solid #03c75a;
+        background: linear-gradient(180deg, #ffffff 0%, #f6fef9 100%);
+        box-shadow: 0 4px 16px rgba(3, 199, 90, 0.1);
+    }
+    .quota-card.priority::before {
+        content: "1순위";
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: #03c75a;
+        color: #ffffff;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+    }
+    .quota-card.exhausted {
+        opacity: 0.55;
+        background: #f8f9fa;
+    }
+    .quota-card.exhausted::after {
+        content: "소진";
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: #adb5bd;
+        color: #ffffff;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    .quota-model-name {
+        font-size: 15px;
+        font-weight: 800;
+        color: #1a1a1a;
+        letter-spacing: -0.2px;
+        margin-bottom: 2px;
+    }
+    .quota-model-desc {
+        font-size: 11px;
+        color: #868e96;
+        margin-bottom: 14px;
+    }
+    .quota-pct-row {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        margin-bottom: 10px;
+    }
+    .quota-pct-big {
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1;
+        color: #03c75a;
+        letter-spacing: -1px;
+    }
+    .quota-pct-unit {
+        font-size: 16px;
+        font-weight: 700;
+        color: #adb5bd;
+    }
+    .quota-pct-big.warn { color: #f39c12; }
+    .quota-pct-big.danger { color: #e74c3c; }
+    .quota-bar {
+        width: 100%;
+        height: 7px;
+        background: #f1f3f5;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+    .quota-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+        background: linear-gradient(90deg, #03c75a 0%, #02a94d 100%);
+    }
+    .quota-bar-fill.warn {
+        background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
+    }
+    .quota-bar-fill.danger {
+        background: linear-gradient(90deg, #e74c3c 0%, #c0392b 100%);
+    }
+    .quota-stats {
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px dashed #f1f3f5;
+        padding-top: 10px;
+    }
+    .quota-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .quota-stat-label {
+        font-size: 10px;
+        color: #adb5bd;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .quota-stat-value {
+        font-size: 12px;
+        font-weight: 700;
+        color: #343a40;
+    }
+
+    /* ===== Status banners ===== */
+    .status-banner {
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin: 12px 0 18px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .status-banner.warn {
+        background: #fff9e6;
+        border-left: 4px solid #f39c12;
+        color: #8a6d3b;
+    }
+    .status-banner.danger {
+        background: #fef2f2;
+        border-left: 4px solid #e74c3c;
+        color: #9b2c2c;
+    }
+    .status-banner-icon { font-size: 16px; }
+
+    /* Responsive: stack cards on narrow screens */
+    @media (max-width: 720px) {
+        .quota-grid { grid-template-columns: 1fr; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -452,6 +734,142 @@ st.markdown("""
     이미 운영 중인 필수키워드가 있다면 함께 입력하면 중복 없이 확장된 키워드를 추출합니다.
 </div>
 """, unsafe_allow_html=True)
+
+
+# ── Model Selector + Quota Dashboard ──
+
+with st.sidebar:
+    st.header("⚙️ 관리자 설정")
+    st.caption("이 앱은 Gemini 무료 티어 내에서만 호출합니다. 한도 소진 시 자동 차단됩니다.")
+    if st.button("Quota 카운터 리셋", use_container_width=True):
+        quota_tracker.reset_all()
+        st.success("리셋 완료")
+        st.rerun()
+
+
+MODEL_OPTIONS = {
+    "⚡ 자동": None,
+    "🥇 2.5 Flash": "gemini-2.5-flash",
+    "🥈 2.0 Flash": "gemini-2.0-flash",
+    "🥉 1.5 Flash": "gemini-1.5-flash",
+}
+MODEL_META = {
+    "gemini-2.5-flash": {"display": "2.5 Flash", "desc": "최신 · 품질 최상"},
+    "gemini-2.0-flash": {"display": "2.0 Flash", "desc": "안정 · 대용량"},
+    "gemini-1.5-flash": {"display": "1.5 Flash", "desc": "경량 · 검증됨"},
+}
+
+st.markdown(
+    '<div class="free-tier-banner">'
+    '<div class="free-tier-icon">🆓</div>'
+    '<div class="free-tier-body">'
+    '<div class="free-tier-title">완전 무료 운영 모드<span class="free-tier-chip">0원 보장</span></div>'
+    '<div class="free-tier-text">'
+    '<strong>2.5 Flash</strong> (500회/일) 우선 사용 → 소진 시 <strong>2.0 Flash</strong> (1,500회/일) → <strong>1.5 Flash</strong> (1,500회/일)로 자동 전환합니다. '
+    '일 최대 <strong>3,500회</strong>까지 유료 청구 없이 안전하게 운영됩니다.'
+    '</div></div></div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="section-title"><span class="section-title-dot"></span>사용할 모델</div>',
+    unsafe_allow_html=True,
+)
+_current_pref = st.session_state.get('_model_pref_label', "⚡ 자동")
+model_pref_label = st.radio(
+    "model_selector",
+    options=list(MODEL_OPTIONS.keys()),
+    index=list(MODEL_OPTIONS.keys()).index(_current_pref) if _current_pref in MODEL_OPTIONS else 0,
+    horizontal=True,
+    label_visibility="collapsed",
+    key="model_radio",
+)
+st.session_state._model_pref_label = model_pref_label
+st.session_state.selected_model = MODEL_OPTIONS[model_pref_label]
+
+_quota_usages = {m: quota_tracker.get_usage(m) for m in FALLBACK_MODELS}
+_any_available = any(
+    quota_tracker.can_call(m)[0] for m in FALLBACK_MODELS
+)
+_max_daily_pct = max(
+    (u['rpd_used'] / u['rpd_limit']) for u in _quota_usages.values() if u['rpd_limit']
+)
+_selected_model = st.session_state.get('selected_model')
+_first_model = _selected_model if _selected_model in FALLBACK_MODELS else FALLBACK_MODELS[0]
+
+st.markdown(
+    '<div class="section-title"><span class="section-title-dot"></span>실시간 무료 티어 사용량</div>',
+    unsafe_allow_html=True,
+)
+
+_cards_html = '<div class="quota-grid">'
+for _model in FALLBACK_MODELS:
+    _u = _quota_usages[_model]
+    _meta = MODEL_META[_model]
+    _pct = (_u['rpd_used'] / _u['rpd_limit']) if _u['rpd_limit'] else 0
+    _pct_int = int(round(_pct * 100))
+    _exhausted = _u['rpd_used'] >= _u['rpd_limit']
+    if _pct >= 0.9:
+        _state = "danger"
+    elif _pct >= 0.7:
+        _state = "warn"
+    else:
+        _state = ""
+    _classes = ["quota-card"]
+    if _model == _first_model and not _exhausted:
+        _classes.append("priority")
+    if _exhausted:
+        _classes.append("exhausted")
+    _cards_html += (
+        f'<div class="{" ".join(_classes)}">'
+        f'<div class="quota-model-name">{_meta["display"]}</div>'
+        f'<div class="quota-model-desc">{_meta["desc"]}</div>'
+        f'<div class="quota-pct-row">'
+        f'<span class="quota-pct-big {_state}">{_pct_int}</span>'
+        f'<span class="quota-pct-unit">%</span>'
+        f'</div>'
+        f'<div class="quota-bar">'
+        f'<div class="quota-bar-fill {_state}" style="width: {min(_pct_int, 100)}%;"></div>'
+        f'</div>'
+        f'<div class="quota-stats">'
+        f'<div class="quota-stat">'
+        f'<span class="quota-stat-label">오늘</span>'
+        f'<span class="quota-stat-value">{_u["rpd_used"]} / {_u["rpd_limit"]}</span>'
+        f'</div>'
+        f'<div class="quota-stat" style="text-align:right;">'
+        f'<span class="quota-stat-label">최근 1분</span>'
+        f'<span class="quota-stat-value">{_u["rpm_used"]} / {_u["rpm_limit"]}</span>'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+    )
+_cards_html += '</div>'
+st.markdown(_cards_html, unsafe_allow_html=True)
+
+if not _any_available:
+    st.markdown(
+        '<div class="status-banner danger">'
+        '<span class="status-banner-icon">🚫</span>'
+        '<span>오늘 3개 모델의 무료 티어가 모두 소진되었습니다. 내일 00시(PST) 이후 자동 리셋됩니다.</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+elif _max_daily_pct >= 0.9:
+    st.markdown(
+        f'<div class="status-banner danger">'
+        f'<span class="status-banner-icon">⚠️</span>'
+        f'<span>무료 티어 <strong>{int(_max_daily_pct * 100)}%</strong> 사용 — 곧 소진됩니다</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+elif _max_daily_pct >= 0.7:
+    st.markdown(
+        f'<div class="status-banner warn">'
+        f'<span class="status-banner-icon">💡</span>'
+        f'<span>무료 티어 <strong>{int(_max_daily_pct * 100)}%</strong> 사용 중 — 남은 한도에 유의하세요</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ── API Key ──
@@ -540,7 +958,13 @@ with col_del:
 
 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-if st.button("🔍  키워드 추출", type="primary", use_container_width=True):
+_btn_label = "🔍  키워드 추출" if _any_available else "🚫 무료 한도 소진 (내일 재시도)"
+if st.button(
+    _btn_label,
+    type="primary",
+    use_container_width=True,
+    disabled=not _any_available,
+):
     valid_brands = [b for b in brands_data if b['brand'] and b['products']]
 
     if not valid_brands:
